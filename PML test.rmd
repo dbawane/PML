@@ -1,0 +1,130 @@
+# Practical Machine Learning Project
+
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+In this project, goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+Build model to predict the manner in which they did the exercise from the data.
+
+This is the "classe" variable in the training set and "problem_id" in validation set.
+
+##Data 
+
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+## Data Reading
+
+Read the two csv files
+
+```{r}
+train <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+validation  <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+```
+
+##Data Exploration and Cleanup
+
+
+We need only numeric data from accelerometers on the belt, forearm, arm, and dumbell. So we select only those columns.
+
+This gives us vector xxx.
+
+The data contains many columns having all zero or all null values. 
+We take sum of columns and get logical vector, sum zero, true or false.
+
+This is vector yyy.
+
+Then we filter these columns to get data for analysis. 
+
+Above operation needs to be performed on test and validation set.
+
+
+```{r}
+names <- colnames(train)
+xxx <- grepl("belt|arm|dumbbell|classe|problem_id", names)
+yyy <- as.logical(!colSums(is.na(train)))
+train_set <- train[, xxx & yyy]
+```
+
+```{r}
+names <- colnames(validation)
+xxx <- grepl("belt|arm|dumbbell|classe|problem_id", names)
+yyy <- as.logical(!colSums(is.na(validation)))
+validation_set <- validation[, xxx & yyy]
+```
+
+
+
+## Data Partition for Training and Testing 
+
+We partition the data for training and testing.
+
+```{r}
+library(caret)
+Index  <- createDataPartition(train_set$classe, p=.50, list=FALSE)
+data.train <- train_set[ Index,]
+data.test  <- train_set[-Index,]
+```
+
+## Create Model
+
+We use random forest decision tree algorithm, as this is classification problem.
+
+```{r}
+library(randomForest)
+rfmodel <- train(data.train[,-53],
+                       data.train$classe, method = "rf",
+                       tuneGrid=data.frame(mtry=3),
+                       trControl=trainControl(method="none"))
+```
+
+Get the summary of the fitted model.
+
+```{r}
+summary(rfmodel)
+```
+
+## Model Evaluation
+
+Evaluate the model on the training dataset
+
+```{r}
+confusionMatrix(predict(rfmodel,
+                        newdata=data.test[,-53]),
+                data.test$classe)
+```
+
+The Kappa statistic of 0.994 reflects the out-of-sample error.
+
+```{r}
+plot( varImp(rfmodel) )
+```
+
+##Prepare the submission. 
+
+(using COURSERA provided code)
+
+Perform validation on validation set and create result files for submission.
+
+
+```{r}
+pml_write_files = function(x){
+      n = length(x)
+      for(i in 1:n){
+            filename = paste0("problem_id_",i,".txt")
+            write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+      }
+}
+
+x <- validation_set[,-53]
+
+answers <- predict(rfmodel, newdata=x)
+##answers
+pml_write_files(answers)
+```
+
